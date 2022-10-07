@@ -1,0 +1,10 @@
+[Interface]
+Address = 10.123.123.2
+PrivateKey = eJsLEenwk/pdArTwc6mcDhOKPXUUNDXpG8pZCWIxDFw=
+ListenPort = 51820
+DNS = 10.123.123.1
+
+[Peer]
+PublicKey = XQOmrDEMGtTvBXouXJSrQVtLOZcMWDX/ejcJSKMTr08=
+Endpoint = 185.19.31.41:51820
+AllowedIPs = 0.0.0.0/0, ::/0
