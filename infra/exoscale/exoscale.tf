@@ -15,19 +15,28 @@ locals {
   zone = "ch-gva-2"
 }
 
-data "exoscale_compute_template" "ubuntu" {
+data "exoscale_template" "ubuntu" {
   zone = local.zone
   name = "Linux Ubuntu 20.04 LTS 64-bit"
 }
 
-resource "exoscale_compute" "ubuntu-wireguard" {
+resource "tls_private_key" "wireguard" {
+  algorithm = "ED25519"
+}
+
+variable "ssh_keys" {
+  type = set(string)
+  default = ["wireguard"]
+}
+
+resource "exoscale_compute_instance" "ubuntu-wireguard" {
   zone         = local.zone
-  display_name = "ubuntu-wireguard"
-  size         = "Micro"
-  template_id  = data.exoscale_compute_template.ubuntu.id
+  name = "ubuntu-wireguard"
+  type         = "standard.micro"
+  template_id  = data.exoscale_template.ubuntu.id
   disk_size    = 10
-  security_groups = [exoscale_security_group.vpn.name]
-  key_pair = "wireguard"
+  security_group_ids = [exoscale_security_group.vpn.id]
+  ssh_keys = var.ssh_keys
   user_data    = <<EOF
 #cloud-config
 package_upgrade: true
@@ -41,23 +50,25 @@ resource "exoscale_security_group" "vpn" {
 
 }
 
-resource "exoscale_security_group_rules" "vpn" {
-  security_group = exoscale_security_group.vpn.name
+resource "exoscale_security_group_rule" "vpn_shh" {
+  security_group_id = exoscale_security_group.vpn.id
+  type = "INGRESS"
+  start_port = 22
+  end_port = 22
+  protocol = "TCP"
+  cidr = "0.0.0.0/0"
+}
 
-  ingress {
-    protocol = "UDP"
-    cidr_list = ["0.0.0.0/0", "::/0"]
-    ports = [51820]
-  }
-
-  ingress {
-    protocol = "TCP"
-    cidr_list = ["0.0.0.0/0", "::/0"]
-    ports = [22]
-  }
+resource "exoscale_security_group_rule" "vpn_udp" {
+  security_group_id = exoscale_security_group.vpn.id
+  type = "INGRESS"
+  start_port = 51820
+  end_port = 51820
+  protocol = "UDP"
+  cidr = "0.0.0.0/0"
 }
 
 resource "local_file" "hosts" {
   filename = "../../hosts"
-  content = "[vpn]\n${exoscale_compute.ubuntu-wireguard.ip_address} ansible_user=root"
+  content = "[vpn]\n${exoscale_compute_instance.ubuntu-wireguard.public_ip_address} ansible_user=root"
 }
